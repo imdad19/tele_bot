@@ -10,7 +10,13 @@ import tempfile
 
 logger = logging.getLogger(__name__)
 
-client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+_client = None
+
+def _get_client():
+    global _client
+    if _client is None:
+        _client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    return _client
 
 SYSTEM_PROMPT = """You are a price tracking assistant for a market explorer in Istanbul, Turkey.
 Extract product information from user input (text, image descriptions, or voice transcripts).
@@ -82,7 +88,7 @@ async def parse_product_entry(raw_input: str) -> dict:
                 "text": f"Extract product and price info from: '{raw_input}'"
             })
 
-        response = client.messages.create(
+        response = _get_client().messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=500,
             system=SYSTEM_PROMPT,
