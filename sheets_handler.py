@@ -18,11 +18,15 @@ HEADERS = ["Timestamp", "Product", "Price", "Currency", "Store", "Location", "Ca
 
 
 def _load_credentials():
-    if not os.path.exists(TOKEN_FILE):
-        raise FileNotFoundError("token.json not found — run authorize.py first")
-
-    with open(TOKEN_FILE) as f:
-        data = json.load(f)
+    # Try loading from TOKEN_JSON env var (for cloud deployments like Railway)
+    token_json_env = os.environ.get("TOKEN_JSON")
+    if token_json_env:
+        data = json.loads(token_json_env)
+    elif os.path.exists(TOKEN_FILE):
+        with open(TOKEN_FILE) as f:
+            data = json.load(f)
+    else:
+        raise FileNotFoundError("token.json not found — run authorize.py first or set TOKEN_JSON env var")
 
     # Parse expiry — token.json stores it as ISO string
     expiry = None
@@ -50,12 +54,13 @@ def _load_credentials():
     if not creds.valid or creds.expired:
         logger.info("Refreshing expired access token...")
         creds.refresh(Request())
-        # Save updated token back to file
-        data["token"] = creds.token
-        data["expiry"] = creds.expiry.isoformat() if creds.expiry else ""
-        with open(TOKEN_FILE, "w") as f:
-            json.dump(data, f, indent=2)
-        logger.info("Token refreshed and saved.")
+        # Save updated token back to file (only if using file mode)
+        if not token_json_env and os.path.exists(TOKEN_FILE):
+            data["token"] = creds.token
+            data["expiry"] = creds.expiry.isoformat() if creds.expiry else ""
+            with open(TOKEN_FILE, "w") as f:
+                json.dump(data, f, indent=2)
+            logger.info("Token refreshed and saved.")
 
     return creds
 
